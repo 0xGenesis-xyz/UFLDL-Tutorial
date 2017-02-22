@@ -72,6 +72,26 @@ activations = zeros(convDim,convDim,numFilters,numImages);
 activationsPooled = zeros(outputDim,outputDim,numFilters,numImages);
 
 %%% YOUR CODE HERE %%%
+for imageNum=1:numImages
+    for filterNum=1:numFilters
+        filter = Wc(:, :, filterNum);
+        filter = rot90(squeeze(filter),2);
+        im = squeeze(images(:, :, imageNum));
+        convolvedImage = conv2(im, filter, 'valid');
+        convolvedImage = convolvedImage+bc(filterNum);
+        convolvedImage = sigmf(convolvedImage, [1 0]);
+        activations(:, :, filterNum, imageNum) = convolvedImage;
+    end
+end
+
+filter = ones(poolDim)/(poolDim*poolDim);
+for imageNum = 1:numImages
+    for featureNum = 1:numFilters
+        im = squeeze(activations(:, :, featureNum, imageNum));
+        convolvedImage = conv2(im, filter, 'valid');
+        activationsPooled(:, :, featureNum, imageNum) = convolvedImage(1:poolDim:end, 1:poolDim:end);
+    end
+end
 
 % Reshape activations into 2-d matrix, hiddenSize x numImages,
 % for Softmax layer
@@ -88,6 +108,11 @@ activationsPooled = reshape(activationsPooled,[],numImages);
 probs = zeros(numClasses,numImages);
 
 %%% YOUR CODE HERE %%%
+out = bsxfun(@plus, Wd*activationsPooled, bd);
+
+numerator = exp(out);
+denominator = sum(numerator, 1);
+probs = bsxfun(@rdivide, numerator, denominator);
 
 %%======================================================================
 %% STEP 1b: Calculate Cost
@@ -98,6 +123,11 @@ probs = zeros(numClasses,numImages);
 cost = 0; % save objective into cost
 
 %%% YOUR CODE HERE %%%
+one = zeros(numImages, numClasses);
+I = sub2ind(size(one), 1:size(one,1), labels');
+one(I) = 1;
+
+cost = (-1/numImages)*sum(sum(one'.*log(probs)));
 
 % Makes predictions given probs and returns without backproagating errors.
 if pred
@@ -118,6 +148,18 @@ end;
 %  quickly.
 
 %%% YOUR CODE HERE %%%
+deltaOut = probs-one';
+deltaPooled = Wd'*deltaOut;
+deltaPooled = reshape(deltaPooled, outputDim, outputDim, numFilters, numImages);
+
+deltaConvolution = zeros(convDim, convDim, numFilters, numImages);
+meanFilter = ones(poolDim)/(poolDim*poolDim);
+for imageNum = 1:numImages
+    for featureNum = 1:numFilters
+        deltaConvolution(:, :, featureNum, imageNum) = kron(deltaPooled(:, :, featureNum, imageNum), meanFilter);
+    end
+end
+deltaConvolution = deltaConvolution.*activations.*(1-activations);
 
 %%======================================================================
 %% STEP 1d: Gradient Calculation
@@ -128,6 +170,21 @@ end;
 %  for that filter with each image and aggregate over images.
 
 %%% YOUR CODE HERE %%%
+Wd_grad = deltaOut*activationsPooled'/numImages;
+bd_grad = sum(deltaOut, 2)/numImages;
+
+for filterNum=1:numFilters
+    for imageNum = 1:numImages
+        im = squeeze(images(:, :, imageNum));
+        delta = rot90(deltaConvolution(:, :, filterNum, imageNum), 2);
+        Wc_grad(:, :, filterNum) = Wc_grad(:, :, filterNum)+conv2(im, delta, 'valid');
+    end
+    Wc_grad(:, :, filterNum) = Wc_grad(:, :, filterNum)/numImages;
+end
+for filterNum=1:numFilters
+    delta = deltaConvolution(:, :, filterNum, :);
+    bc_grad(filterNum) = sum(delta(:))/numImages;
+end
 
 %% Unroll gradient into grad vector for minFunc
 grad = [Wc_grad(:) ; Wd_grad(:) ; bc_grad(:) ; bd_grad(:)];
