@@ -78,7 +78,7 @@ patches = samplePatches([unlabeledData,trainData],params.patchWidth,200000);
 %configure minFunc
 options.Method = 'lbfgs';
 options.MaxFunEvals = Inf;
-options.MaxIter = 1000;
+options.MaxIter = 1000; %300
 % You'll need to replace this line with RICA training code
 opttheta = randTheta;
 
@@ -86,6 +86,8 @@ opttheta = randTheta;
 %  You will need to whitened the patches with the zca2 function 
 %  then call minFunc with the softICACost function as seen in the RICA exercise.
 %%% YOUR CODE HERE %%%
+[patches, V] = zca2(patches);
+[opttheta, cost, exitflag] = minFunc( @(theta) softICACost(theta, patches, params), randTheta, options);
 
 % reshape visualize weights
 W = reshape(opttheta, params.numFeatures, params.n);
