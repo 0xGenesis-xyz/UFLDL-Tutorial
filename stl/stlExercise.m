@@ -136,13 +136,16 @@ options.MaxIter = 300;
 
 % optimize
 %%% YOUR CODE HERE %%%
-
+optTheta2 = minFunc(@softmax_regression_vec, randTheta2, options, trainFeatures, trainLabels);
+optTheta2 = reshape(optTheta2, featureSize, numClasses);
 
 %%======================================================================
 %% STEP 5: Testing 
 % Compute Predictions on tran and test sets using softmaxPredict
 % and softmaxModel
 %%% YOUR CODE HERE %%%
+[~, train_pred] = max(optTheta2'*trainFeatures, [], 1);
+[~, pred] = max(optTheta2'*testFeatures, [], 1);
 % Classification Score
 fprintf('Train Accuracy: %f%%\n', 100*mean(train_pred(:) == trainLabels(:)));
 fprintf('Test Accuracy: %f%%\n', 100*mean(pred(:) == testLabels(:)));
